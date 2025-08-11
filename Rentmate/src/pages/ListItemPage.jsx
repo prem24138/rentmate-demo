@@ -1,14 +1,19 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { auth, db } from "../firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 function ListItemPage() {
   const navigate = useNavigate();
+  const [user, setUser] = useState(null);
   const [formData, setFormData] = useState({
-    title: '',
-    category: '',
-    price: '',
-    location: '',
-    description: '',
+    title: "",
+    category: "",
+    price: "",
+    location: "",
+    description: "",
     images: []
   });
   const [loading, setLoading] = useState(false);
@@ -17,103 +22,138 @@ function ListItemPage() {
 
   // Categories
   const categories = [
-    { value: 'vehicles', label: 'Vehicles' },
-    { value: 'electronics', label: 'Electronics' },
-    { value: 'furniture', label: 'Furniture' },
-    { value: 'appliances', label: 'Appliances' },
-    { value: 'tools', label: 'Tools & Equipment' },
-    { value: 'sports', label: 'Sports & Outdoors' },
-    { value: 'fashion', label: 'Fashion & Accessories' },
-    { value: 'other', label: 'Other' }
+    { value: "vehicles", label: "Vehicles" },
+    { value: "electronics", label: "Electronics" },
+    { value: "furniture", label: "Furniture" },
+    { value: "appliances", label: "Appliances" },
+    { value: "tools", label: "Tools & Equipment" },
+    { value: "sports", label: "Sports & Outdoors" },
+    { value: "fashion", label: "Fashion & Accessories" },
+    { value: "other", label: "Other" }
   ];
+
+  // Check auth state
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (currentUser) => {
+      if (!currentUser) {
+        navigate("/login");
+      } else {
+        setUser(currentUser);
+      }
+    });
+    return () => unsub();
+  }, [navigate]);
 
   // Handle input change
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
+    setFormData((prev) => ({
+      ...prev,
       [name]: value
-    });
+    }));
 
-    // Clear error for this field when user types
     if (errors[name]) {
-      setErrors({
-        ...errors,
-        [name]: ''
-      });
+      setErrors((prev) => ({
+        ...prev,
+        [name]: ""
+      }));
     }
   };
 
   // Handle image selection
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
-    
+
     if (files.length > 5) {
-      setErrors({
-        ...errors,
-        images: 'Maximum 5 images allowed'
-      });
+      setErrors((prev) => ({
+        ...prev,
+        images: "Maximum 5 images allowed"
+      }));
       return;
     }
 
-    // Create image previews
-    const previews = files.map(file => URL.createObjectURL(file));
+    const previews = files.map((file) => URL.createObjectURL(file));
     setImagePreview(previews);
-    
-    setFormData({
-      ...formData,
+
+    setFormData((prev) => ({
+      ...prev,
       images: files
-    });
-    
-    // Clear image error if any
+    }));
+
     if (errors.images) {
-      setErrors({
-        ...errors,
-        images: ''
-      });
+      setErrors((prev) => ({
+        ...prev,
+        images: ""
+      }));
     }
   };
 
   // Form validation
   const validateForm = () => {
     const newErrors = {};
-    
-    if (!formData.title.trim()) newErrors.title = 'Title is required';
-    if (!formData.category) newErrors.category = 'Category is required';
-    if (!formData.price) newErrors.price = 'Price is required';
-    else if (isNaN(formData.price) || parseFloat(formData.price) <= 0) 
-      newErrors.price = 'Price must be a valid positive number';
-    if (!formData.location.trim()) newErrors.location = 'Location is required';
-    if (!formData.description.trim()) newErrors.description = 'Description is required';
-    else if (formData.description.length < 20) 
-      newErrors.description = 'Description must be at least 20 characters';
-    if (formData.images.length === 0) newErrors.images = 'At least one image is required';
-    
+
+    if (!formData.title.trim()) newErrors.title = "Title is required";
+    if (!formData.category) newErrors.category = "Category is required";
+    if (!formData.price) newErrors.price = "Price is required";
+    else if (isNaN(formData.price) || parseFloat(formData.price) <= 0)
+      newErrors.price = "Price must be a valid positive number";
+    if (!formData.location.trim()) newErrors.location = "Location is required";
+    if (!formData.description.trim())
+      newErrors.description = "Description is required";
+    else if (formData.description.length < 20)
+      newErrors.description = "Description must be at least 20 characters";
+    // if (formData.images.length === 0)
+      // newErrors.images = "At least one image is required";
+
     return newErrors;
   };
 
+  // Upload images to Firebase Storage
+  const uploadImages = async () => {
+    const urls = [];
+    for (const file of formData.images) {
+      const storageRef = ref(
+        storage,
+        `items/${user.uid}/${Date.now()}-${file.name}`
+      );
+      await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(storageRef);
+      urls.push(downloadURL);
+    }
+    return urls;
+  };
+
   // Handle form submission
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Validate form
+
     const formErrors = validateForm();
     if (Object.keys(formErrors).length > 0) {
       setErrors(formErrors);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
-    
+
     setLoading(true);
-    
-    setTimeout(() => {
-      console.log('Submitting item:', formData);
-      
+
+    try {
+      // const imageUrls = await uploadImages();
+
+      await addDoc(collection(db, "items"), {
+        ...formData,
+        // images: imageUrls,
+        userId: user.uid,
+        createdAt: serverTimestamp()
+      });
+
+      alert("Item listed successfully!");
+      navigate("/dashboard");
+    } catch (error) {
+      console.error("Error listing item:", error);
+      alert("Error listing item. Please try again.");
+    } finally {
       setLoading(false);
-      alert('Item listed successfully!');
-      
-      navigate('/dashboard');
-    }, 1500);
+    }
   };
 
   return (

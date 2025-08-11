@@ -6,6 +6,7 @@ import {
 } from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { auth, db } from "../firebase"; // adjust import path as necessary
+import { useNavigate } from 'react-router-dom';
 
 
 // The main App component that manages the view state
@@ -16,6 +17,7 @@ export default function App() {
   // A component to display the login and registration forms
 const AuthPage = ({ view, onViewChange }) => {
   const isLogin = view === "login";
+  const navigator = useNavigate();
 
   // Form state
   const [formData, setFormData] = useState({
@@ -132,6 +134,7 @@ const AuthPage = ({ view, onViewChange }) => {
         }
 
         setApiMessage("Login successful!");
+        navigator("/");
       } catch (err) {
         setApiMessage(err.message);
       } finally {

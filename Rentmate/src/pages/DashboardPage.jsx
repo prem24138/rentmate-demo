@@ -1,18 +1,55 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { auth, db } from "../firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { collection, query, where, getDocs } from "firebase/firestore";
 
 function DashboardPage() {
   const [activeTab, setActiveTab] = useState('my-rentals');
+  const [user, setUser] = useState(null);
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (currentUser) => {
+      if (!currentUser) {
+        navigate("/login");
+      } else {
+        setUser(currentUser);
+        await fetchUserItems(currentUser.uid);
+      }
+    });
+
+    return () => unsub();
+  }, [navigate]);
+
+  const fetchUserItems = async (uid) => {
+    try {
+      const q = query(collection(db, "items"), where("userId", "==", uid));
+      const querySnapshot = await getDocs(q);
+
+      const data = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      setItems(data);
+    } catch (error) {
+      console.error("Error fetching user items:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
   // Mock user data
-  const user = {
-    name: "John Doe",
-    email: "john.doe@example.com",
-    joinDate: "January 2023",
-    verified: true,
-    wallet: 250,
-    avatar: "https://randomuser.me/api/portraits/men/32.jpg"
-  };
+  // const user = {
+  //   name: "John Doe",
+  //   email: "john.doe@example.com",
+  //   joinDate: "January 2023",
+  //   verified: true,
+  //   wallet: 250,
+  //   avatar: "https://randomuser.me/api/portraits/men/32.jpg"
+  // };
 
   // Mock rentals data
   const myRentals = [
@@ -88,7 +125,7 @@ function DashboardPage() {
           {/* Sidebar */}
           <div className="md:w-1/4">
             {/* User profile card */}
-            <div className="bg-white rounded-lg shadow-sm mb-6 p-6">
+            {/* <div className="bg-white rounded-lg shadow-sm mb-6 p-6">
               <div className="flex items-center">
                 <div className="h-16 w-16 rounded-full overflow-hidden mr-4">
                   <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
@@ -118,11 +155,11 @@ function DashboardPage() {
                   Add Funds
                 </button>
               </div>
-            </div>
+            </div> */}
 
             {/* Navigation */}
             <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-              <button 
+              <button
                 onClick={() => setActiveTab('my-rentals')}
                 className={`w-full text-left px-6 py-3 flex items-center ${activeTab === 'my-rentals' ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-600' : 'text-gray-700 hover:bg-gray-50'}`}
               >
@@ -131,7 +168,7 @@ function DashboardPage() {
                 </svg>
                 My Rentals
               </button>
-              <button 
+              <button
                 onClick={() => setActiveTab('my-listings')}
                 className={`w-full text-left px-6 py-3 flex items-center ${activeTab === 'my-listings' ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-600' : 'text-gray-700 hover:bg-gray-50'}`}
               >
@@ -162,7 +199,7 @@ function DashboardPage() {
                     </button>
                   </div>
                 </div>
-                
+
                 {myRentals.length > 0 ? (
                   <div className="space-y-4">
                     {myRentals.map(rental => (
@@ -177,15 +214,14 @@ function DashboardPage() {
                               <h3 className="text-lg font-semibold mb-1">{rental.title}</h3>
                               <p className="text-sm text-gray-600 mb-2">From {rental.owner}</p>
                             </div>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              rental.status === 'active' ? 'bg-green-100 text-green-800' :
-                              rental.status === 'completed' ? 'bg-gray-100 text-gray-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${rental.status === 'active' ? 'bg-green-100 text-green-800' :
+                                rental.status === 'completed' ? 'bg-gray-100 text-gray-800' :
+                                  'bg-red-100 text-red-800'
+                              }`}>
                               {rental.status.charAt(0).toUpperCase() + rental.status.slice(1)}
                             </span>
                           </div>
-                          
+
                           <div className="grid grid-cols-2 gap-4 mb-4">
                             <div>
                               <p className="text-xs text-gray-500">Start Date</p>
@@ -204,7 +240,7 @@ function DashboardPage() {
                               <p className="font-medium">${rental.price * Math.ceil((new Date(rental.endDate) - new Date(rental.startDate)) / (1000 * 60 * 60 * 24))}</p>
                             </div>
                           </div>
-                          
+
                           <div className="flex flex-wrap gap-2 mt-4">
                             <Link to={`/product/${rental.id}`} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700">
                               View Details
@@ -250,10 +286,10 @@ function DashboardPage() {
                     Add New Listing
                   </Link>
                 </div>
-                
-                {myListings.length > 0 ? (
+
+                {items && items.length > 0 ? (
                   <div className="space-y-4">
-                    {myListings.map(listing => (
+                    {items.map(listing => (
                       <div key={listing.id} className="bg-white rounded-lg shadow-sm overflow-hidden flex flex-col sm:flex-row">
                         <div className="sm:w-1/4">
                           <img src={listing.image} alt={listing.title} className="h-full w-full object-cover" />
@@ -272,15 +308,14 @@ function DashboardPage() {
                                 <span className="text-sm font-medium">{listing.rating}</span>
                               </div>
                             </div>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              listing.status === 'active' ? 'bg-green-100 text-green-800' :
-                              listing.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                              {listing.status.charAt(0).toUpperCase() + listing.status.slice(1)}
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${listing.status === 'active' ? 'bg-green-100 text-green-800' :
+                                listing.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-red-100 text-red-800'
+                              }`}>
+                              {/* {listing.status.charAt(0).toUpperCase() + listing.status.slice(1)} */}
                             </span>
                           </div>
-                          
+
                           <div className="grid grid-cols-3 gap-4 mb-4">
                             <div>
                               <p className="text-xs text-gray-500">Price/Day</p>
@@ -295,7 +330,7 @@ function DashboardPage() {
                               <p className="font-medium">{listing.views}</p>
                             </div>
                           </div>
-                          
+
                           <div className="flex flex-wrap gap-2 mt-4">
                             <Link to={`/product/${listing.id}`} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700">
                               View Listing
