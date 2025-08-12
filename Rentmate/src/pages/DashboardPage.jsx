@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { auth, db } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, getDoc, doc } from "firebase/firestore";
 
 function DashboardPage() {
   const [activeTab, setActiveTab] = useState('my-rentals');
@@ -18,6 +18,17 @@ function DashboardPage() {
       } else {
         setUser(currentUser);
         await fetchUserItems(currentUser.uid);
+
+        try {
+          const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            console.log("User data:", data);
+            setUser(data);
+          }
+        } catch (error) {
+          console.error("Error fetching user name:", error);
+        }
       }
     });
 
@@ -125,37 +136,37 @@ function DashboardPage() {
           {/* Sidebar */}
           <div className="md:w-1/4">
             {/* User profile card */}
-            {/* <div className="bg-white rounded-lg shadow-sm mb-6 p-6">
-              <div className="flex items-center">
-                <div className="h-16 w-16 rounded-full overflow-hidden mr-4">
-                  <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-medium flex items-center">
-                    {user.name}
-                    {user.verified && (
+            {user &&
+              <div className="bg-white rounded-lg shadow-sm mb-6 p-6">
+                <div className="flex items-center">
+                  <div className="h-16 w-16 rounded-full overflow-hidden mr-4">
+                    <img src="https://randomuser.me/api/portraits/men/32.jpg" alt={user.name} className="h-full w-full object-cover" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-medium flex items-center">
+                      {user.firstName} {user.lastName}
                       <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                         <svg className="-ml-0.5 mr-1.5 h-2 w-2 text-green-600" fill="currentColor" viewBox="0 0 8 8">
                           <circle cx="4" cy="4" r="3" />
                         </svg>
                         Verified
                       </span>
-                    )}
-                  </h3>
-                  <p className="text-sm text-gray-500">Member since {user.joinDate}</p>
+                    </h3>
+                    <p className="text-sm text-gray-500">Member since {user.createdAt}</p>
+                  </div>
                 </div>
-              </div>
 
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-gray-500">Wallet Balance</span>
-                  <span className="text-lg font-semibold text-green-600">${user.wallet}</span>
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm text-gray-500">Wallet Balance</span>
+                    <span className="text-lg font-semibold text-green-600">${user.wallet}</span>
+                  </div>
+                  <button className="w-full py-2 px-4 border border-blue-600 rounded-md text-blue-600 text-sm font-medium hover:bg-blue-50">
+                    Add Funds
+                  </button>
                 </div>
-                <button className="w-full py-2 px-4 border border-blue-600 rounded-md text-blue-600 text-sm font-medium hover:bg-blue-50">
-                  Add Funds
-                </button>
               </div>
-            </div> */}
+            }
 
             {/* Navigation */}
             <div className="bg-white rounded-lg shadow-sm overflow-hidden">
@@ -215,8 +226,8 @@ function DashboardPage() {
                               <p className="text-sm text-gray-600 mb-2">From {rental.owner}</p>
                             </div>
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${rental.status === 'active' ? 'bg-green-100 text-green-800' :
-                                rental.status === 'completed' ? 'bg-gray-100 text-gray-800' :
-                                  'bg-red-100 text-red-800'
+                              rental.status === 'completed' ? 'bg-gray-100 text-gray-800' :
+                                'bg-red-100 text-red-800'
                               }`}>
                               {rental.status.charAt(0).toUpperCase() + rental.status.slice(1)}
                             </span>
@@ -292,7 +303,9 @@ function DashboardPage() {
                     {items.map(listing => (
                       <div key={listing.id} className="bg-white rounded-lg shadow-sm overflow-hidden flex flex-col sm:flex-row">
                         <div className="sm:w-1/4">
-                          <img src={listing.image} alt={listing.title} className="h-full w-full object-cover" />
+                          {listing.images && listing.images.length > 0 && (
+                            <img src={listing.images[0]} alt={listing.title} className="h-full w-full object-cover" />
+                          )}
                         </div>
                         <div className="p-4 sm:p-6 flex-grow">
                           <div className="flex justify-between items-start">
@@ -309,8 +322,8 @@ function DashboardPage() {
                               </div>
                             </div>
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${listing.status === 'active' ? 'bg-green-100 text-green-800' :
-                                listing.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                  'bg-red-100 text-red-800'
+                              listing.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-red-100 text-red-800'
                               }`}>
                               {/* {listing.status.charAt(0).toUpperCase() + listing.status.slice(1)} */}
                             </span>

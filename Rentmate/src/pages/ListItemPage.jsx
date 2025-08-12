@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { auth, db } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 function ListItemPage() {
   const navigate = useNavigate();
@@ -102,26 +101,37 @@ function ListItemPage() {
       newErrors.description = "Description is required";
     else if (formData.description.length < 20)
       newErrors.description = "Description must be at least 20 characters";
-    // if (formData.images.length === 0)
-      // newErrors.images = "At least one image is required";
+    if (formData.images.length === 0)
+      newErrors.images = "At least one image is required";
 
     return newErrors;
   };
 
-  // Upload images to Firebase Storage
-  const uploadImages = async () => {
+  // Upload images to Cloudinary
+  const uploadImagesToCloudinary = async () => {
     const urls = [];
+
     for (const file of formData.images) {
-      const storageRef = ref(
-        storage,
-        `items/${user.uid}/${Date.now()}-${file.name}`
+      const data = new FormData();
+      data.append("file", file);
+      data.append("upload_preset", "product_images"); // from Cloudinary
+      data.append("cloud_name", "dykeszwq4");       // from Cloudinary
+
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/dykeszwq4/image/upload`,
+        {
+          method: "POST",
+          body: data
+        }
       );
-      await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(storageRef);
-      urls.push(downloadURL);
+
+      const uploadedImage = await res.json();
+      urls.push(uploadedImage.secure_url);
     }
+
     return urls;
   };
+
 
   // Handle form submission
   const handleSubmit = async (e) => {
@@ -137,11 +147,11 @@ function ListItemPage() {
     setLoading(true);
 
     try {
-      // const imageUrls = await uploadImages();
+      const imageUrls = await uploadImagesToCloudinary();
 
       await addDoc(collection(db, "items"), {
         ...formData,
-        // images: imageUrls,
+        images: imageUrls,
         userId: user.uid,
         createdAt: serverTimestamp()
       });
@@ -161,7 +171,7 @@ function ListItemPage() {
       <div className="container mx-auto px-4">
         <div className="max-w-3xl mx-auto">
           <h1 className="text-3xl font-bold mb-6">List Your Item</h1>
-          
+
           {/* Error summary */}
           {Object.keys(errors).length > 0 && (
             <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-4 mb-6">
@@ -173,7 +183,7 @@ function ListItemPage() {
               </ul>
             </div>
           )}
-          
+
           <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6">
             <div className="space-y-6">
               {/* Basic Information */}
@@ -181,7 +191,7 @@ function ListItemPage() {
                 <h2 className="text-xl font-semibold mb-4 pb-2 border-b border-gray-200">
                   Basic Information
                 </h2>
-                
+
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   {/* Title */}
                   <div className="col-span-2">
@@ -194,16 +204,15 @@ function ListItemPage() {
                       name="title"
                       value={formData.title}
                       onChange={handleChange}
-                      className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                        errors.title ? 'border-red-500' : 'border-gray-300'
-                      }`}
+                      className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.title ? 'border-red-500' : 'border-gray-300'
+                        }`}
                       placeholder="e.g. iPhone 13 Pro Max"
                     />
                     {errors.title && (
                       <p className="text-red-500 text-sm mt-1">{errors.title}</p>
                     )}
                   </div>
-                  
+
                   {/* Category */}
                   <div>
                     <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
@@ -214,9 +223,8 @@ function ListItemPage() {
                       name="category"
                       value={formData.category}
                       onChange={handleChange}
-                      className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                        errors.category ? 'border-red-500' : 'border-gray-300'
-                      }`}
+                      className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.category ? 'border-red-500' : 'border-gray-300'
+                        }`}
                     >
                       <option value="">Select a category</option>
                       {categories.map(category => (
@@ -229,7 +237,7 @@ function ListItemPage() {
                       <p className="text-red-500 text-sm mt-1">{errors.category}</p>
                     )}
                   </div>
-                  
+
                   {/* Location */}
                   <div>
                     <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
@@ -241,9 +249,8 @@ function ListItemPage() {
                       name="location"
                       value={formData.location}
                       onChange={handleChange}
-                      className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                        errors.location ? 'border-red-500' : 'border-gray-300'
-                      }`}
+                      className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.location ? 'border-red-500' : 'border-gray-300'
+                        }`}
                       placeholder="e.g. New York, NY"
                     />
                     {errors.location && (
@@ -252,13 +259,13 @@ function ListItemPage() {
                   </div>
                 </div>
               </div>
-              
+
               {/* Pricing */}
               <div>
                 <h2 className="text-xl font-semibold mb-4 pb-2 border-b border-gray-200">
                   Pricing
                 </h2>
-                
+
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   {/* Price */}
                   <div>
@@ -275,9 +282,8 @@ function ListItemPage() {
                         name="price"
                         value={formData.price}
                         onChange={handleChange}
-                        className={`w-full pl-8 pr-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                          errors.price ? 'border-red-500' : 'border-gray-300'
-                        }`}
+                        className={`w-full pl-8 pr-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.price ? 'border-red-500' : 'border-gray-300'
+                          }`}
                         placeholder="0.00"
                       />
                     </div>
@@ -290,13 +296,13 @@ function ListItemPage() {
                   </div>
                 </div>
               </div>
-              
+
               {/* Description */}
               <div>
                 <h2 className="text-xl font-semibold mb-4 pb-2 border-b border-gray-200">
                   Description
                 </h2>
-                
+
                 <div>
                   <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
                     Item Description*
@@ -307,9 +313,8 @@ function ListItemPage() {
                     value={formData.description}
                     onChange={handleChange}
                     rows="5"
-                    className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      errors.description ? 'border-red-500' : 'border-gray-300'
-                    }`}
+                    className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.description ? 'border-red-500' : 'border-gray-300'
+                      }`}
                     placeholder="Describe your item in detail. Include condition, features, and any other relevant information."
                   ></textarea>
                   {errors.description && (
@@ -320,43 +325,43 @@ function ListItemPage() {
                   </p>
                 </div>
               </div>
-              
+
               {/* Images */}
               <div>
                 <h2 className="text-xl font-semibold mb-4 pb-2 border-b border-gray-200">
                   Images
                 </h2>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Upload Images* (Up to 5)
                   </label>
                   <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md border-gray-300 hover:border-blue-400 transition-colors">
                     <div className="space-y-1 text-center">
-                      <svg 
-                        className="mx-auto h-12 w-12 text-gray-400" 
-                        stroke="currentColor" 
-                        fill="none" 
-                        viewBox="0 0 48 48" 
+                      <svg
+                        className="mx-auto h-12 w-12 text-gray-400"
+                        stroke="currentColor"
+                        fill="none"
+                        viewBox="0 0 48 48"
                         aria-hidden="true"
                       >
-                        <path 
-                          d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" 
-                          strokeWidth="2" 
-                          strokeLinecap="round" 
-                          strokeLinejoin="round" 
+                        <path
+                          d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
                         />
                       </svg>
                       <div className="flex text-sm text-gray-600">
                         <label htmlFor="images" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500">
                           <span>Upload files</span>
-                          <input 
-                            id="images" 
-                            name="images" 
-                            type="file" 
-                            accept="image/*" 
+                          <input
+                            id="images"
+                            name="images"
+                            type="file"
+                            accept="image/*"
                             multiple
-                            className="sr-only" 
+                            className="sr-only"
                             onChange={handleImageChange}
                           />
                         </label>
@@ -370,7 +375,7 @@ function ListItemPage() {
                   {errors.images && (
                     <p className="text-red-500 text-sm mt-1">{errors.images}</p>
                   )}
-                  
+
                   {/* Image previews */}
                   {imagePreview.length > 0 && (
                     <div className="mt-4">
@@ -378,9 +383,9 @@ function ListItemPage() {
                       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                         {imagePreview.map((src, index) => (
                           <div key={index} className="relative">
-                            <img 
-                              src={src} 
-                              alt={`Preview ${index + 1}`} 
+                            <img
+                              src={src}
+                              alt={`Preview ${index + 1}`}
                               className="h-24 w-full object-cover rounded-md"
                             />
                           </div>
@@ -390,7 +395,7 @@ function ListItemPage() {
                   )}
                 </div>
               </div>
-              
+
               {/* Submit */}
               <div className="pt-4 border-t border-gray-200">
                 <div className="flex justify-end">
