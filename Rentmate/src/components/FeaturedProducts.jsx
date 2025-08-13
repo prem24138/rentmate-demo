@@ -1,97 +1,73 @@
 import { useState, useEffect } from 'react';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase'; // adjust path
+import { useNavigate } from 'react-router-dom';
 
 // Featured Products Component (your existing component)
+
 function FeaturedProducts({ onProductSelect }) {
-  const [products] = useState([
-    {
-      id: 1,
-      name: 'Mountain Bike',
-      category: 'Vehicles',
-      price: 150,
-      image: 'https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
-      rating: 4.8,
-      reviews: 24,
-      location: 'New York',
-      owner: {
-        name: 'John Wick',
-        verified: true,
-      },
-    },
-    {
-      id: 2,
-      name: 'DSLR Camera',
-      category: 'Electronics',
-      price: 250,
-      image: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
-      rating: 4.5,
-      reviews: 18,
-      location: 'San Francisco',
-      owner: {
-        name: 'Jane Smith',
-        verified: true,
-      },
-    },
-    {
-      id: 3,
-      name: 'Portable AC',
-      category: 'Home Appliances',
-      price: 200,
-      image: 'https://images.unsplash.com/photo-1553434320-e9f5757140b1?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
-      rating: 4.2,
-      reviews: 12,
-      location: 'Chicago',
-      owner: {
-        name: 'Mike Johnson',
-        verified: false,
-      },
-    },
-    {
-      id: 4,
-      name: 'Office Desk',
-      category: 'Furniture',
-      price: 100,
-      image: 'https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
-      rating: 4.6,
-      reviews: 31,
-      location: 'Boston',
-      owner: {
-        name: 'Sarah Lee',
-        verified: true,
-      },
-    },
-    {
-      id: 5,
-      name: 'Gaming Console',
-      category: 'Electronics',
-      price: 300,
-      image: 'https://images.unsplash.com/photo-1486572788966-cfd3df1f5b42?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
-      rating: 4.9,
-      reviews: 42,
-      location: 'Los Angeles',
-      owner: {
-        name: 'Alex Brown',
-        verified: true,
-      },
-    },
-    {
-      id: 6,
-      name: 'Convertible Car',
-      category: 'Vehicles',
-      price: 800,
-      image: 'https://images.unsplash.com/photo-1511919884226-fd3cad34687c?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
-      rating: 4.7,
-      reviews: 15,
-      location: 'Miami',
-      owner: {
-        name: 'David Wilson',
-        verified: true,
-      },
-    },
-  ]);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        const itemsSnapshot = await getDocs(collection(db, 'items'));
+
+        const productsWithOwners = await Promise.all(
+          itemsSnapshot.docs.map(async (docSnap) => {
+            const data = docSnap.data();
+
+            // Fetch owner info
+            let ownerData = { name: 'Unknown', verified: false };
+            if (data.userId) {
+              const ownerRef = doc(db, 'users', data.userId);
+              const ownerSnap = await getDoc(ownerRef);
+              if (ownerSnap.exists()) {
+                ownerData = ownerSnap.data();
+              }
+            }
+
+            return {
+              id: docSnap.id,
+              name: data.title,
+              category: data.category,
+              price: Number(data.price),
+              location: data.location,
+              description: data.description,
+              features: data.features || [],
+              rating: Number(data.ratings) || 0,
+              reviews: data.reviews || 0,
+              rules: data.rules || [],
+              image: data.images?.[0] || '/placeholder.jpg',
+              owner: ownerData
+            };
+          })
+        );
+
+        setProducts(productsWithOwners);
+      } catch (err) {
+        console.error('Error fetching featured products:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
 
   const handleProductClick = (product) => {
     onProductSelect(product);
   };
+
+  if (loading) {
+    return (
+      <section className="py-12 bg-white text-center">
+        <p>Loading featured products...</p>
+      </section>
+    );
+  }
 
   return (
     <section className="py-12 bg-white">
@@ -142,8 +118,6 @@ function FeaturedProducts({ onProductSelect }) {
                           i < Math.floor(product.rating) ? 'text-yellow-400' : 'text-gray-300'
                         }`}
                         viewBox="0 0 20 20"
-                        xmlns="http://www.w3.org/2000/svg"
-                        aria-hidden="true"
                       >
                         <path d="M10 15l-5.878 3.09 1.123-6.545L.49 6.91l6.562-.955L10 0l2.947 5.955 6.562.955-4.755 4.635 1.123 6.545z" />
                       </svg>
@@ -154,29 +128,12 @@ function FeaturedProducts({ onProductSelect }) {
 
                 <div className="mt-4 flex justify-between items-center text-sm text-gray-600">
                   <div className="flex items-center">
-                    <svg
-                      className="w-4 h-4 mr-1 fill-current text-gray-600"
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                    >
-                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zM12 11.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z" />
-                    </svg>
-                    {product.location}
+                    📍 {product.location}
                   </div>
                   <div className="flex items-center">
                     <span className="mr-1 text-gray-600">Owner:</span>
                     <span className="font-medium">{product.owner.name}</span>
-                    {product.owner.verified && (
-                      <svg
-                        className="w-4 h-4 ml-1 text-green-500 fill-current"
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        aria-label="Verified Owner"
-                      >
-                        <path d="M10 0C4.486 0 0 4.486 0 10s4.486 10 10 10 10-4.486 10-10S15.514 0 10 0zm4.293 7.293l-4.88 4.88-2.293-2.293-1.414 1.414 3.707 3.707 6.293-6.293-1.414-1.414z" />
-                      </svg>
-                    )}
+                    {product.owner.verified && <span className="text-green-500 ml-1">✔️</span>}
                   </div>
                 </div>
 
@@ -192,30 +149,18 @@ function FeaturedProducts({ onProductSelect }) {
             </div>
           ))}
         </div>
-
-        <div className="mt-12 text-center">
-          <button className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition">
-            View All Products
-            <svg
-              className="ml-2 w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"></path>
-            </svg>
-          </button>
-        </div>
       </div>
     </section>
   );
 }
 
+// export default FeaturedProducts;
+
+
 // Product Details Component (simplified version of the previous component)
 function ProductDetails({ productData, onBack }) {
+    const navigate = useNavigate();
+
   const [bookingDates, setBookingDates] = useState({
     startDate: '',
     endDate: ''
@@ -226,8 +171,16 @@ function ProductDetails({ productData, onBack }) {
 
   const handleBookingSubmit = (e) => {
     e.preventDefault();
-    alert(`Booking confirmed for ${totalDays} days! Total: ₹${totalPrice}`);
     setShowBookingForm(false);
+    navigate('/payment', {
+      state: {
+        product: productData,
+        type: 'rental',
+        bookingDetails: {
+          ...bookingDates,
+        }
+      }
+    });
   };
 
   // Calculate total when dates change
@@ -334,13 +287,13 @@ function ProductDetails({ productData, onBack }) {
               <div className="flex items-center space-x-3">
                 <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center">
                   <span className="text-gray-600 font-medium">
-                    {productData.owner.name.charAt(0)}
+                    {productData.owner?.firstName.charAt(0)}
                   </span>
                 </div>
                 <div>
                   <div className="flex items-center">
-                    <span className="font-medium text-gray-900">{productData.owner.name}</span>
-                    {productData.owner.verified && (
+                    <span className="font-medium text-gray-900">{productData.owner?.firstName}</span>
+                    {productData.owner?.verified && (
                       <svg className="w-5 h-5 ml-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
