@@ -108,7 +108,8 @@ const AuthPage = ({ view, onViewChange }) => {
           lastName: formData.lastName,
           email: formData.email,
           phone: formData.phone,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          verified: true
         });
 
         setApiMessage("Registration successful! Please check your email to verify your account.");

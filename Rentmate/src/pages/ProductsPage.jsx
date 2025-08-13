@@ -1,11 +1,17 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase'; // adjust import path to your firebase config
+
 
 function ProductsPage() {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const categoryParam = location.pathname.split('/')[2] || '';
   const searchQuery = queryParams.get('search') || '';
+
+  const [allProducts, setAllProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const [products, setProducts] = useState([]);
   const [filters, setFilters] = useState({
@@ -16,9 +22,57 @@ function ProductsPage() {
     rating: ''
   });
 
-  // Dummy product data (could be replaced with API)
-  const [allProducts] = useState([
-  ]);
+
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        const itemsSnapshot = await getDocs(collection(db, 'items'));
+
+        const productsWithOwners = await Promise.all(
+          itemsSnapshot.docs.map(async (docSnap) => {
+            const productData = { id: docSnap.id, ...docSnap.data() };
+
+            // Fetch owner details
+            let ownerData = { name: 'Unknown', verified: true };
+            if (productData.userId) {
+              const ownerRef = doc(db, 'users', productData.userId);
+              const ownerSnap = await getDoc(ownerRef);
+              if (ownerSnap.exists()) {
+                ownerData = ownerSnap.data();
+              }
+            }
+
+            return {
+              id: docSnap.id,
+              name: productData.title,
+              category: productData.category,
+              price: Number(productData.price),
+              location: productData.location,
+              description: productData.description,
+              features: productData.features || [],
+              rating: Number(productData.ratings) || 0,
+              reviews: productData.reviews || 0, // if you store review count
+              rules: productData.rules || [],
+              image: productData.images?.[0] || '/placeholder.jpg',
+              owner: ownerData,
+            };
+          })
+        );
+
+        setAllProducts(productsWithOwners);
+      } catch (error) {
+        console.error('Error fetching products:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
+
 
   useEffect(() => {
     let filtered = [...allProducts];
@@ -173,7 +227,9 @@ function ProductsPage() {
             <p className="text-gray-500 text-sm mt-1">{products.length} items found</p>
           </div>
 
-          {products.length > 0 ? (
+          {loading ? (
+            <div className="text-center py-12 text-gray-500">Loading products...</div>
+          ) : products.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {products.map(product => (
                 <div
@@ -205,8 +261,8 @@ function ProductsPage() {
                       <div className="flex justify-between items-center text-sm text-gray-600">
                         <div>📍 {product.location}</div>
                         <div>
-                          {product.owner.verified && <span className="text-green-500 mr-1">✔️</span>}
-                          {product.owner.name}
+                          {product.owner.verified || <span className="text-green-500 mr-1">✔️</span>}
+                          {product.owner.firstName}
                         </div>
                       </div>
 

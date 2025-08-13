@@ -17,21 +17,13 @@ export default function PaymentPage() {
   const location = useLocation();
   const { product, type, bookingDetails: initialBooking } = location.state || {};
 
+
   console.log(product);
   const [bookingDetails, setBookingDetails] = useState({
     startDate: initialBooking?.startDate || '',
     endDate: initialBooking?.endDate || '',
     startTime: initialBooking?.startTime || '09:00',
     endTime: initialBooking?.endTime || '18:00',
-  });
-
-  const [paymentMethod, setPaymentMethod] = useState('upi');
-  const [paymentDetails, setPaymentDetails] = useState({
-    upiId: '',
-    cardNumber: '',
-    expiryDate: '',
-    cvv: '',
-    cardName: '',
   });
 
   const [isProcessing, setIsProcessing] = useState(false);
@@ -83,7 +75,7 @@ export default function PaymentPage() {
       key: "rzp_test_7ZnT8A3axVA7WT", // Public Key (safe)
       amount: totalAmount * 100, // Razorpay takes amount in paise
       currency: "INR",
-      name: "Your Company Name",
+      name: "RentMate",
       description: `Booking for ${product.title}`,
       handler: async function (response) {
         try {
@@ -100,9 +92,15 @@ export default function PaymentPage() {
             {
               productId: product.id,
               productTitle: product.title,
+              productCategory: product.category,
+              productLocation: product.location,
+              productPrice: product.price,
+              productType: type,
+              productOwner: product.userId,
               productImage: product.images?.[0] || "",
               bookingDetails,
               totalAmount,
+              status: "Active",
               paymentId: response.razorpay_payment_id,
               timestamp: new Date(),
             }
@@ -203,7 +201,7 @@ export default function PaymentPage() {
           <div className="bg-gray-50 rounded-lg p-4 mb-6">
             <div className="flex items-start space-x-4">
               <img
-                src={product.images?.[0] || '/placeholder.png'}
+                src={product.images?.[0] || product.image || '/placeholder.png'}
                 alt={product.title}
                 className="w-20 h-20 object-cover rounded-lg"
               />

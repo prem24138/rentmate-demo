@@ -10,6 +10,7 @@ function DashboardPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const [rentals, setRentals] = useState([]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (currentUser) => {
@@ -18,13 +19,13 @@ function DashboardPage() {
       } else {
         setUser(currentUser);
         await fetchUserItems(currentUser.uid);
+        await fetchUserRentals(currentUser.uid); // ✅ fetch rentals too
 
         try {
           const userDoc = await getDoc(doc(db, "users", currentUser.uid));
           if (userDoc.exists()) {
             const data = userDoc.data();
-            console.log("User data:", data);
-            setUser(data);
+            setUser((prev) => ({ ...prev, ...data }));
           }
         } catch (error) {
           console.error("Error fetching user name:", error);
@@ -34,6 +35,7 @@ function DashboardPage() {
 
     return () => unsub();
   }, [navigate]);
+
 
   const fetchUserItems = async (uid) => {
     try {
@@ -52,6 +54,25 @@ function DashboardPage() {
       setLoading(false);
     }
   }
+
+  const fetchUserRentals = async (uid) => {
+    try {
+      // const q = query(collection(db, uid, "rentals"));
+      const querySnapshot = await getDocs(collection(db, "users", uid, "rentals"));
+
+      const data = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      console.log("Fetched rentals:", data);
+
+      setRentals(data);
+    } catch (error) {
+      console.error("Error fetching rentals:", error);
+    }
+  };
+
   // Mock user data
   // const user = {
   //   name: "John Doe",
@@ -140,7 +161,7 @@ function DashboardPage() {
               <div className="bg-white rounded-lg shadow-sm mb-6 p-6">
                 <div className="flex items-center">
                   <div className="h-16 w-16 rounded-full overflow-hidden mr-4">
-                    <img src="https://randomuser.me/api/portraits/men/32.jpg" alt={user.name} className="h-full w-full object-cover" />
+                    <img src="https://randomuser.me/api/portraits/men/32.jpg" alt={user.firstName} className="h-full w-full object-cover" />
                   </div>
                   <div>
                     <h3 className="text-lg font-medium flex items-center">
@@ -152,7 +173,7 @@ function DashboardPage() {
                         Verified
                       </span>
                     </h3>
-                    <p className="text-sm text-gray-500">Member since {user.createdAt}</p>
+                    <p className="text-sm text-gray-500">Member since {new Date(user.createdAt).toLocaleString()}</p>
                   </div>
                 </div>
 
@@ -211,64 +232,109 @@ function DashboardPage() {
                   </div>
                 </div>
 
-                {myRentals.length > 0 ? (
+                {rentals.length > 0 ? (
                   <div className="space-y-4">
-                    {myRentals.map(rental => (
-                      <div key={rental.id} className="bg-white rounded-lg shadow-sm overflow-hidden flex flex-col sm:flex-row">
+                    {rentals.map(rental => (
+                      <div
+                        key={rental.id}
+                        className="bg-white rounded-lg shadow-sm overflow-hidden flex flex-col sm:flex-row relative"
+                      >
                         <div className="sm:w-1/4">
-                          <img src={rental.image} alt={rental.title} className="h-full w-full object-cover" />
+                          <img
+                            src={rental.productImage}
+                            alt={rental.productTitle}
+                            className="h-full w-full object-cover"
+                          />
                         </div>
                         <div className="p-4 sm:p-6 flex-grow">
                           <div className="flex justify-between items-start">
                             <div>
-                              <span className="text-sm text-gray-500">{rental.category}</span>
-                              <h3 className="text-lg font-semibold mb-1">{rental.title}</h3>
+                              <span className="text-sm text-gray-500">{rental.productCategory}</span>
+                              <h3 className="text-lg font-semibold mb-1">{rental.productTitle}</h3>
                               <p className="text-sm text-gray-600 mb-2">From {rental.owner}</p>
                             </div>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${rental.status === 'active' ? 'bg-green-100 text-green-800' :
-                              rental.status === 'completed' ? 'bg-gray-100 text-gray-800' :
-                                'bg-red-100 text-red-800'
-                              }`}>
-                              {rental.status.charAt(0).toUpperCase() + rental.status.slice(1)}
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${rental.status === "active"
+                                  ? "bg-green-100 text-green-800"
+                                  : rental.status === "completed"
+                                    ? "bg-gray-100 text-gray-800"
+                                    : "bg-red-100 text-red-800"
+                                }`}
+                            >
+                              {/* {rental.status.charAt(0).toUpperCase() + rental.status.slice(1)} */}
                             </span>
                           </div>
 
                           <div className="grid grid-cols-2 gap-4 mb-4">
                             <div>
                               <p className="text-xs text-gray-500">Start Date</p>
-                              <p className="font-medium">{new Date(rental.startDate).toLocaleDateString()}</p>
+                              <p className="font-medium">
+                                {new Date(rental.bookingDetails.startDate).toLocaleDateString()}
+                              </p>
                             </div>
                             <div>
                               <p className="text-xs text-gray-500">End Date</p>
-                              <p className="font-medium">{new Date(rental.endDate).toLocaleDateString()}</p>
+                              <p className="font-medium">
+                                {new Date(rental.bookingDetails.endDate).toLocaleDateString()}
+                              </p>
                             </div>
                             <div>
                               <p className="text-xs text-gray-500">Price/Day</p>
-                              <p className="font-medium">${rental.price}</p>
+                              <p className="font-medium">${rental.productPrice}</p>
                             </div>
                             <div>
                               <p className="text-xs text-gray-500">Total</p>
-                              <p className="font-medium">${rental.price * Math.ceil((new Date(rental.endDate) - new Date(rental.startDate)) / (1000 * 60 * 60 * 24))}</p>
+                              <p className="font-medium">
+                                $
+                                {rental.productPrice *
+                                  Math.ceil(
+                                    (new Date(rental.endDate) - new Date(rental.startDate)) /
+                                    (1000 * 60 * 60 * 24)
+                                  )}
+                              </p>
                             </div>
                           </div>
 
                           <div className="flex flex-wrap gap-2 mt-4">
-                            <Link to={`/product/${rental.id}`} className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700">
+                            <Link
+                              to={`/product/${rental.productId}`}
+                              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700"
+                            >
                               View Details
                             </Link>
-                            {rental.status === 'active' && (
+                            {rental.status === "active" && (
                               <button className="px-4 py-2 border border-red-500 text-red-500 text-sm font-medium rounded-md hover:bg-red-50">
                                 Cancel
                               </button>
                             )}
-                            {rental.status === 'completed' && (
+                            {rental.status === "completed" && (
                               <button className="px-4 py-2 border border-blue-600 text-blue-600 text-sm font-medium rounded-md hover:bg-blue-50">
                                 Write Review
                               </button>
                             )}
                           </div>
                         </div>
+
+                        {/* WhatsApp icon at bottom right */}
+                        <a
+                          href={`https://wa.me/${rental.ownerPhone}?text=${encodeURIComponent(
+                            "Hi, I am interested in your rental product."
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="absolute bottom-4 right-4 text-green-500 hover:text-green-600"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-6 w-6"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path d="M20.52 3.48A11.82 11.82 0 0 0 12 .1C5.37.1.1 5.37.1 12c0 2.12.55 4.18 1.59 6.01L.1 24l6.18-1.62A11.86 11.86 0 0 0 12 23.9c6.63 0 11.9-5.27 11.9-11.9 0-3.18-1.24-6.17-3.48-8.52zm-8.52 18c-2.08 0-4.12-.55-5.91-1.6l-.42-.24-3.67.96.98-3.57-.25-.43A9.82 9.82 0 0 1 2.1 12c0-5.45 4.45-9.9 9.9-9.9 2.64 0 5.12 1.03 7 2.9a9.82 9.82 0 0 1 2.9 7c0 5.45-4.45 9.9-9.9 9.9zm5.39-7.34c-.29-.15-1.73-.85-2-.95-.27-.1-.47-.15-.67.15s-.77.95-.95 1.15-.35.22-.64.07c-.29-.15-1.23-.45-2.34-1.45-.86-.77-1.45-1.73-1.62-2.02-.17-.29-.02-.45.13-.6.13-.13.29-.35.43-.52.15-.17.2-.29.3-.49.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.91-2.21-.24-.58-.49-.5-.67-.51-.17-.01-.37-.01-.57-.01s-.52.07-.79.37c-.27.3-1.05 1.02-1.05 2.48s1.08 2.88 1.23 3.08c.15.2 2.12 3.25 5.15 4.55.72.31 1.29.5 1.73.64.73.23 1.39.2 1.92.12.59-.09 1.73-.71 1.97-1.4.24-.69.24-1.28.17-1.4-.07-.12-.27-.2-.56-.35z" />
+                          </svg>
+                        </a>
                       </div>
+
                     ))}
                   </div>
                 ) : (
