@@ -69,7 +69,10 @@ function ProductDetailPage() {
     setShowModal(false);
     navigate('/payment', {
       state: {
-        product,
+        product: {
+          ...product,
+          owner: { ...owner }
+        },
         type: 'rental',
         bookingDetails: {
           ...rentDates,

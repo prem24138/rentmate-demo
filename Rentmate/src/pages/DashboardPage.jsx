@@ -251,14 +251,14 @@ function DashboardPage() {
                             <div>
                               <span className="text-sm text-gray-500">{rental.productCategory}</span>
                               <h3 className="text-lg font-semibold mb-1">{rental.productTitle}</h3>
-                              <p className="text-sm text-gray-600 mb-2">From {rental.owner}</p>
+                              <p className="text-sm text-gray-600 mb-2">From {rental.productOwner?.firstName}</p>
                             </div>
                             <span
                               className={`px-2 py-1 rounded-full text-xs font-medium ${rental.status === "active"
-                                  ? "bg-green-100 text-green-800"
-                                  : rental.status === "completed"
-                                    ? "bg-gray-100 text-gray-800"
-                                    : "bg-red-100 text-red-800"
+                                ? "bg-green-100 text-green-800"
+                                : rental.status === "completed"
+                                  ? "bg-gray-100 text-gray-800"
+                                  : "bg-red-100 text-red-800"
                                 }`}
                             >
                               {/* {rental.status.charAt(0).toUpperCase() + rental.status.slice(1)} */}
@@ -284,11 +284,13 @@ function DashboardPage() {
                             </div>
                             <div>
                               <p className="text-xs text-gray-500">Total</p>
+
                               <p className="font-medium">
                                 $
                                 {rental.productPrice *
                                   Math.ceil(
-                                    (new Date(rental.endDate) - new Date(rental.startDate)) /
+                                    (new Date(rental.bookingDetails.endDate) -
+                                      new Date(rental.bookingDetails.startDate)) /
                                     (1000 * 60 * 60 * 24)
                                   )}
                               </p>
@@ -316,8 +318,8 @@ function DashboardPage() {
                         </div>
 
                         {/* WhatsApp icon at bottom right */}
-                        <a
-                          href={`https://wa.me/${rental.ownerPhone}?text=${encodeURIComponent(
+                        <a a
+                          href={`https://wa.me/+91${rental.productOwner?.phone}?text=${encodeURIComponent(
                             "Hi, I am interested in your rental product."
                           )}`}
                           target="_blank"
@@ -449,8 +451,8 @@ function DashboardPage() {
             )}
           </div>
         </div>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }
 
