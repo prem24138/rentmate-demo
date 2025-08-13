@@ -2,6 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { CheckCircle, Star, MapPin } from 'lucide-react';
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../firebase"; // adjust the path
 
 function ProductDetailPage() {
   const { id } = useParams();
@@ -14,47 +16,40 @@ function ProductDetailPage() {
   const [totalDays, setTotalDays] = useState(0);
   const [totalPrice, setTotalPrice] = useState(0);
   const [showModal, setShowModal] = useState(false);
+  const [owner, setOwner] = useState(null); // NEW
 
   useEffect(() => {
-    setTimeout(() => {
-      const data = {
-        id: 1,
-        name: 'Mountain Bike',
-        category: 'Vehicles',
-        price: 150,
-        description: 'High-quality mountain bike...',
-        features: ['21-speed Shimano gears', 'Hydraulic disc brakes'],
-        rules: ['Valid ID required', 'Return clean'],
-        images: [
-          'https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?auto=format&fit=crop&w=800&q=80',
-          'https://images.unsplash.com/photo-1507035895480-2b3156c31fc8?auto=format&fit=crop&w=800&q=80'
-        ],
-        rating: 4.8,
-        reviews: [
-          {
-            id: 1,
-            user: 'Michael Brown',
-            avatar: 'https://randomuser.me/api/portraits/men/1.jpg',
-            date: '2 weeks ago',
-            rating: 5,
-            comment: 'Great bike!'
+    const fetchProduct = async () => {
+      try {
+        const docRef = doc(db, "items", id); // assumes "products" collection
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+          const productData = docSnap.id ? { id: docSnap.id, ...docSnap.data() } : null;
+          setProduct(productData);
+
+           // Fetch owner details
+          if (productData.userId) {
+            const ownerRef = doc(db, "users", productData.userId);
+            const ownerSnap = await getDoc(ownerRef);
+            if (ownerSnap.exists()) {
+              setOwner(ownerSnap.data());
+            }
           }
-        ],
-        owner: {
-          name: 'John Doe',
-          avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
-          rating: 4.9,
-          verified: true,
-          response_rate: '98%',
-          response_time: '1 hour',
-          listings: 5,
-          joined: 'April 2020'
-        },
-        location: 'New York'
-      };
-      setProduct(data);
-      setLoading(false);
-    }, 500);
+        } else {
+          setProduct(null); // not found
+        }
+      } catch (error) {
+        console.error("Error fetching product:", error);
+        setProduct(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchProduct();
+    }
   }, [id]);
 
   useEffect(() => {
@@ -91,14 +86,14 @@ function ProductDetailPage() {
     <div className="max-w-7xl mx-auto px-4 py-8">
       {/* Breadcrumb */}
       <nav className="text-sm text-gray-500 mb-6">
-        <Link to="/" className="hover:text-gray-900">Home</Link> / <Link to="/products" className="hover:text-gray-900">Products</Link> / <span className="text-gray-800">{product.name}</span>
+        <Link to="/" className="hover:text-gray-900">Home</Link> / <Link to="/products" className="hover:text-gray-900">Products</Link> / <span className="text-gray-800">{product.title}</span>
       </nav>
 
       <div className="grid md:grid-cols-2 gap-8">
         {/* Left - Images */}
         <div>
           <div className="relative pb-[75%] rounded overflow-hidden">
-            <img src={product.images[selectedImage]} alt={product.name} className="absolute inset-0 w-full h-full object-cover rounded" />
+            <img src={product.images[selectedImage]} alt={product.title} className="absolute inset-0 w-full h-full object-cover rounded" />
           </div>
           <div className="flex mt-3 gap-2">
             {product.images.map((img, i) => (
@@ -115,13 +110,13 @@ function ProductDetailPage() {
 
         {/* Right - Info */}
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">{product.name}</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">{product.title}</h1>
           <div className="text-gray-600 flex items-center gap-2">
             <MapPin className="w-4 h-4" /> <span>{product.location}</span>
           </div>
           <div className="flex items-center gap-2 mt-2">
             {[...Array(5)].map((_, i) => (
-              <Star key={i} className={`w-4 h-4 ${i < Math.round(product.rating) ? 'text-yellow-400' : 'text-gray-300'}`} fill="currentColor" />
+              <Star key={i} className={`w-4 h-4 ${i < Math.round(product.ratings) ? 'text-yellow-400' : 'text-gray-300'}`} fill="currentColor" />
             ))}
             <span className="text-sm text-gray-600">{product.rating}</span>
           </div>
@@ -131,14 +126,14 @@ function ProductDetailPage() {
           <div className="mb-4">
             <h3 className="font-semibold">Features</h3>
             <ul className="list-disc list-inside text-gray-600">
-              {product.features.map((f, i) => <li key={i}>{f}</li>)}
+              {product.features?.map((f, i) => <li key={i}>{f}</li>)}
             </ul>
           </div>
 
           <div className="mb-4">
             <h3 className="font-semibold">Rules</h3>
             <ul className="list-disc list-inside text-gray-600">
-              {product.rules.map((r, i) => <li key={i}>{r}</li>)}
+              {product.rules?.map((r, i) => <li key={i}>{r}</li>)}
             </ul>
           </div>
 
@@ -152,18 +147,18 @@ function ProductDetailPage() {
 
           {/* Owner */}
           <div className="mt-8 flex items-center gap-4 border-t pt-4">
-            <img src={product.owner.avatar} alt={product.owner.name} className="w-14 h-14 rounded-full object-cover" />
+            {/* <img src={product.owner.avatar} alt={product.owner.name} className="w-14 h-14 rounded-full object-cover" /> */}
             <div>
-              <h4 className="font-semibold text-gray-800 flex items-center gap-1">{product.owner.name} {product.owner.verified && <CheckCircle className="text-green-500 w-4 h-4" />}</h4>
-              <p className="text-sm text-gray-600">Rating: {product.owner.rating} | {product.owner.response_rate} response rate</p>
-              <p className="text-sm text-gray-600">Joined: {product.owner.joined}</p>
+              <h4 className="font-semibold text-gray-800 flex items-center gap-1">{owner.firstName} {owner.verified && <CheckCircle className="text-green-500 w-4 h-4" />}</h4>
+              <p className="text-sm text-gray-600">Rating: {owner.rating} | {owner.response_rate} response rate</p>
+              <p className="text-sm text-gray-600">Joined: {owner.createdAt}</p>
             </div>
           </div>
 
           {/* Reviews */}
           <div className="mt-10">
             <h3 className="text-lg font-semibold mb-3">Reviews</h3>
-            {product.reviews.map((r) => (
+            {/* {product.reviews.map((r) => (
               <div key={r.id} className="flex gap-3 mb-4">
                 <img src={r.avatar} alt={r.user} className="w-12 h-12 rounded-full" />
                 <div>
@@ -176,7 +171,7 @@ function ProductDetailPage() {
                   <p className="text-gray-700 text-sm mt-1">{r.comment}</p>
                 </div>
               </div>
-            ))}
+            ))} */}
           </div>
         </div>
       </div>

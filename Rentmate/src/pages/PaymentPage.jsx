@@ -9,12 +9,15 @@ import {
   CheckCircle,
   MapPin,
 } from 'lucide-react';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../firebase'; // adjust path if needed
 
 export default function PaymentPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { product, type, bookingDetails: initialBooking } = location.state || {};
 
+  console.log(product);
   const [bookingDetails, setBookingDetails] = useState({
     startDate: initialBooking?.startDate || '',
     endDate: initialBooking?.endDate || '',
@@ -60,7 +63,7 @@ export default function PaymentPage() {
   };
 
   const totalDays = calculateDays();
-  const pricePerDay = Number(product?.pricePerDay || 0);
+  const pricePerDay = Number(product?.price || 0);
   const subtotal = totalDays * pricePerDay;
   const serviceFee = Math.round(subtotal * 0.05);
   const securityDeposit = Math.round(pricePerDay * 0.5);
@@ -68,13 +71,63 @@ export default function PaymentPage() {
 
   const handlePayment = async (e) => {
     e.preventDefault();
+
+    if (!window.Razorpay) {
+      alert("Razorpay SDK failed to load. Please check your internet connection.");
+      return;
+    }
+
     setIsProcessing(true);
 
-    // Simulated payment delay
-    setTimeout(() => {
-      setIsProcessing(false);
-      setPaymentComplete(true);
-    }, 3000);
+    const options = {
+      key: "rzp_test_7ZnT8A3axVA7WT", // Public Key (safe)
+      amount: totalAmount * 100, // Razorpay takes amount in paise
+      currency: "INR",
+      name: "Your Company Name",
+      description: `Booking for ${product.title}`,
+      handler: async function (response) {
+        try {
+          const user = auth.currentUser;
+          if (!user) {
+            alert("Please log in first.");
+            setIsProcessing(false);
+            return;
+          }
+
+          // Save booking in Firestore
+          await setDoc(
+            doc(db, "users", user.uid, "rentals", `${Date.now()}`),
+            {
+              productId: product.id,
+              productTitle: product.title,
+              productImage: product.images?.[0] || "",
+              bookingDetails,
+              totalAmount,
+              paymentId: response.razorpay_payment_id,
+              timestamp: new Date(),
+            }
+          );
+
+          setPaymentComplete(true);
+        } catch (error) {
+          console.error("Error saving booking:", error);
+          alert("Payment succeeded, but saving booking failed.");
+        } finally {
+          setIsProcessing(false);
+        }
+      },
+      prefill: {
+        name: auth.currentUser?.displayName || "",
+        email: auth.currentUser?.email || "",
+        contact: "9999999999",
+      },
+      theme: {
+        color: "#00897B",
+      },
+    };
+
+    const rzp = new window.Razorpay(options);
+    rzp.open();
   };
 
   // ---------- PAYMENT SUCCESS VIEW ----------
@@ -161,7 +214,7 @@ export default function PaymentPage() {
                   {product.location}
                 </div>
                 <div className="text-lg font-bold text-teal-600">
-                  ₹{product.pricePerDay}/day
+                  ₹{product.price}/day
                 </div>
               </div>
             </div>
@@ -261,101 +314,8 @@ export default function PaymentPage() {
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Payment Details</h2>
 
           <form onSubmit={handlePayment} className="space-y-6">
-            {/* Payment Method */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">Payment Method</label>
-              <div className="space-y-3">
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="upi"
-                    checked={paymentMethod === 'upi'}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="mr-3"
-                  />
-                  <span className="font-medium">UPI Payment</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="card"
-                    checked={paymentMethod === 'card'}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="mr-3"
-                  />
-                  <span className="font-medium">Credit/Debit Card</span>
-                </label>
-              </div>
-            </div>
-
-            {/* UPI Input */}
-            {paymentMethod === 'upi' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">UPI ID</label>
-                <input
-                  type="text"
-                  required
-                  value={paymentDetails.upiId}
-                  onChange={(e) => setPaymentDetails({ ...paymentDetails, upiId: e.target.value })}
-                  placeholder="yourname@upi"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
-              </div>
-            )}
-
-            {/* Card Details */}
-            {paymentMethod === 'card' && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Cardholder Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={paymentDetails.cardName}
-                    onChange={(e) => setPaymentDetails({ ...paymentDetails, cardName: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Card Number</label>
-                  <input
-                    type="text"
-                    required
-                    value={paymentDetails.cardNumber}
-                    onChange={(e) => setPaymentDetails({ ...paymentDetails, cardNumber: e.target.value })}
-                    placeholder="1234 5678 9012 3456"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Expiry Date</label>
-                    <input
-                      type="text"
-                      required
-                      value={paymentDetails.expiryDate}
-                      onChange={(e) => setPaymentDetails({ ...paymentDetails, expiryDate: e.target.value })}
-                      placeholder="MM/YY"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">CVV</label>
-                    <input
-                      type="text"
-                      required
-                      value={paymentDetails.cvv}
-                      onChange={(e) => setPaymentDetails({ ...paymentDetails, cvv: e.target.value })}
-                      placeholder="123"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Payment method selection */}
+            {/* ... (keep your existing radio buttons) */}
 
             {/* Security Info */}
             <div className="bg-blue-50 p-4 rounded-lg">

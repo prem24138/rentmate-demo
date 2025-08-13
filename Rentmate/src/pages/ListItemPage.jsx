@@ -13,6 +13,9 @@ function ListItemPage() {
     price: "",
     location: "",
     description: "",
+    features: [''],
+    ratings: '',
+    rules: [''],
     images: []
   });
   const [loading, setLoading] = useState(false);
@@ -87,6 +90,25 @@ function ListItemPage() {
     }
   };
 
+  // Update a single item in an array (features or rules)
+  const handleArrayChange = (index, value, field) => {
+    const updatedArray = [...formData[field]];
+    updatedArray[index] = value;
+    setFormData(prev => ({ ...prev, [field]: updatedArray }));
+  };
+
+  // Add a new empty item to the array
+  const handleAddItem = (field) => {
+    setFormData(prev => ({ ...prev, [field]: [...prev[field], ''] }));
+  };
+
+  // Remove an item from the array
+  const handleRemoveItem = (index, field) => {
+    const updatedArray = formData[field].filter((_, i) => i !== index);
+    setFormData(prev => ({ ...prev, [field]: updatedArray }));
+  };
+
+
   // Form validation
   const validateForm = () => {
     const newErrors = {};
@@ -103,6 +125,14 @@ function ListItemPage() {
       newErrors.description = "Description must be at least 20 characters";
     if (formData.images.length === 0)
       newErrors.images = "At least one image is required";
+    if (!formData.features.length || formData.features.some(f => !f.trim())) {
+      errors.features = 'Please enter at least one feature.';
+    }
+
+    if (!formData.rules.length || formData.rules.some(r => !r.trim())) {
+      errors.rules = 'Please enter at least one rule.';
+    }
+
 
     return newErrors;
   };
@@ -165,6 +195,9 @@ function ListItemPage() {
       setLoading(false);
     }
   };
+
+
+
 
   return (
     <div className="bg-gray-50 py-8">
@@ -325,6 +358,87 @@ function ListItemPage() {
                   </p>
                 </div>
               </div>
+
+              {/* Features */}
+              <div>
+                <h2 className="text-xl font-semibold mb-4 pb-2 border-b border-gray-200">
+                  Features
+                </h2>
+
+                {formData.features.map((feature, index) => (
+                  <div key={index} className="flex items-center gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={feature}
+                      onChange={(e) => handleArrayChange(index, e.target.value, 'features')}
+                      className={`flex-1 px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.features ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                      placeholder={`Feature ${index + 1}`}
+                    />
+                    {formData.features.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItem(index, 'features')}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() => handleAddItem('features')}
+                  className="mt-2 px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200"
+                >
+                  + Add Feature
+                </button>
+                {errors.features && (
+                  <p className="text-red-500 text-sm mt-1">{errors.features}</p>
+                )}
+              </div>
+
+              {/* Rules */}
+              <div>
+                <h2 className="text-xl font-semibold mb-4 pb-2 border-b border-gray-200">
+                  Rules
+                </h2>
+
+                {formData.rules.map((rule, index) => (
+                  <div key={index} className="flex items-center gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={rule}
+                      onChange={(e) => handleArrayChange(index, e.target.value, 'rules')}
+                      className={`flex-1 px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.rules ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                      placeholder={`Rule ${index + 1}`}
+                    />
+                    {formData.rules.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItem(index, 'rules')}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() => handleAddItem('rules')}
+                  className="mt-2 px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200"
+                >
+                  + Add Rule
+                </button>
+                {errors.rules && (
+                  <p className="text-red-500 text-sm mt-1">{errors.rules}</p>
+                )}
+              </div>
+
 
               {/* Images */}
               <div>
