@@ -31,13 +31,13 @@ function FeaturedProducts({ onProductSelect }) {
 
             return {
               id: docSnap.id,
-              name: data.title,
+              title: data.title,
               category: data.category,
               price: Number(data.price),
               location: data.location,
               description: data.description,
               features: data.features || [],
-              rating: Number(data.ratings) || 0,
+              ratings: Number(data.ratings) || 0,
               reviews: data.reviews || 0,
               rules: data.rules || [],
               image: data.images?.[0] || '/placeholder.jpg',
